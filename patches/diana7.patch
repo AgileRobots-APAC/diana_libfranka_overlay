@@ -1,0 +1,1774 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -211,14 +211,18 @@ if(BUILD_TESTS)
+   add_subdirectory(test)
+ endif()
+ 
+-option(BUILD_EXAMPLES "Build example code" ON)
++option(BUILD_EXAMPLES "Build example code for the selected Diana arm" OFF)
+ if(BUILD_EXAMPLES)
+-  add_subdirectory(examples)
++  add_subdirectory(examples/diana7)
++  add_subdirectory(examples/utility_examples)
+ endif()
+ 
+ ## Packaging
+ include(SetVersionFromGit)
+-set_version_from_git(PACKAGE_VERSION PACKAGE_TAG)
++# Packaging version comes from the VERSION file at the overlay repo root.
++file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../VERSION" PACKAGE_VERSION)
++string(STRIP "${PACKAGE_VERSION}" PACKAGE_VERSION)
++set(PACKAGE_TAG "v${PACKAGE_VERSION}")
+ execute_process(COMMAND dpkg --print-architecture OUTPUT_VARIABLE PACKAGE_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
+ 
+ set(CPACK_PACKAGE_VENDOR "Franka Robotics GmbH")
+diff --git a/examples/CMakeLists.txt b/examples/diana7/CMakeLists.txt
+similarity index 84%
+rename from examples/CMakeLists.txt
+rename to examples/diana7/CMakeLists.txt
+--- a/examples/CMakeLists.txt
++++ b/examples/diana7/CMakeLists.txt
+@@ -1,8 +1,11 @@
+ cmake_minimum_required(VERSION 3.4)
+ 
+-project(libfranka-examples CXX)
++project(libfranka-examples-${CMAKE_CURRENT_SOURCE_DIR} CXX)
+ 
+-list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/../cmake)
++get_filename_component(CURRENT_DIR_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
++set(PROJECT_NAME "libfranka-examples-${CURRENT_DIR_NAME}")
++
++list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
+ 
+ set(CMAKE_CXX_STANDARD 17)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+@@ -55,6 +58,9 @@ set(EXAMPLES
+ 
+ foreach(example ${EXAMPLES})
+   add_executable(${example} ${example}.cpp)
++  set_target_properties(${example} PROPERTIES
++    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
++  )
+   target_include_directories(${example} PUBLIC
+     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+     $<INSTALL_INTERFACE:include>
+@@ -71,6 +77,3 @@ install(TARGETS ${EXAMPLES}
+   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+ )
+-
+-# Further examples
+-add_subdirectory(utility_examples)
+diff --git a/examples/async_position_control.cpp b/examples/diana7/async_position_control.cpp
+similarity index 98%
+rename from examples/async_position_control.cpp
+rename to examples/diana7/async_position_control.cpp
+--- a/examples/async_position_control.cpp
++++ b/examples/diana7/async_position_control.cpp
+@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
+   }
+   setDefaultBehavior(*robot);
+ 
+-  std::array<double, 7> initial_position{{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++  std::array<double, 7> initial_position{{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+   std::chrono::duration<double> time = 0.0s;
+   auto direction = 1.0;
+   auto calculate_joint_position_target = [&initial_position, &time,
+@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
+ 
+     std::array<double, 7> target_positions;
+     for (size_t i = 0; i < target_positions.size(); ++i) {
+-      target_positions[i] = initial_position[i] + direction * 0.25;
++      target_positions[i] = initial_position[i] + direction * 0.1;
+     }
+ 
+     time_since_last_log += period;
+diff --git a/examples/cartesian_impedance_control.cpp b/examples/diana7/cartesian_impedance_control.cpp
+similarity index 100%
+rename from examples/cartesian_impedance_control.cpp
+rename to examples/diana7/cartesian_impedance_control.cpp
+diff --git a/examples/communication_test.cpp b/examples/diana7/communication_test.cpp
+similarity index 98%
+rename from examples/communication_test.cpp
+rename to examples/diana7/communication_test.cpp
+--- a/examples/communication_test.cpp
++++ b/examples/diana7/communication_test.cpp
+@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+diff --git a/examples/echo_robot_state.cpp b/examples/diana7/echo_robot_state.cpp
+similarity index 100%
+rename from examples/echo_robot_state.cpp
+rename to examples/diana7/echo_robot_state.cpp
+diff --git a/examples/examples_common.cpp b/examples/diana7/examples_common.cpp
+similarity index 95%
+rename from examples/examples_common.cpp
+rename to examples/diana7/examples_common.cpp
+--- a/examples/examples_common.cpp
++++ b/examples/diana7/examples_common.cpp
+@@ -15,8 +15,8 @@ void setDefaultBehavior(franka::Robot& robot) {
+       {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
+       {{20.0, 20.0, 20.0, 20.0, 20.0, 20.0}}, {{20.0, 20.0, 20.0, 20.0, 20.0, 20.0}},
+       {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}});
+-  robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
+-  robot.setCartesianImpedance({{3000, 3000, 3000, 300, 300, 300}});
++  robot.setJointImpedance({2000, 2000, 2000, 1000, 700, 700, 700});
++  robot.setCartesianImpedance({6000, 6000, 6000, 1000, 1000, 1000});
+ }
+ 
+ MotionGenerator::MotionGenerator(double speed_factor, const std::array<double, 7>& q_goal)
+@@ -54,11 +54,11 @@ bool MotionGenerator::calculateDesiredValues(double time, Vector7d* delta_q_d) c
+         (*delta_q_d)[i] =
+             delta_q_[i] +
+             0.5 *
+-                (1.0 / std::pow(delta_t_2_sync[i], 3.0) *
++                              (1.0 / std::pow(delta_t_2_sync[i], 3.0) *
+                      (time - t_1_sync_[i] - 2.0 * delta_t_2_sync[i] - t_d[i]) *
+                      std::pow((time - t_1_sync_[i] - t_d[i]), 3.0) +
+                  (2.0 * time - 2.0 * t_1_sync_[i] - delta_t_2_sync[i] - 2.0 * t_d[i])) *
+-                dq_max_sync_[i] * sign_delta_q[i];
++                              dq_max_sync_[i] * sign_delta_q[i];
+       } else {
+         (*delta_q_d)[i] = delta_q_[i];
+         joint_motion_finished[i] = true;
+diff --git a/examples/examples_common.h b/examples/diana7/examples_common.h
+similarity index 94%
+rename from examples/examples_common.h
+rename to examples/diana7/examples_common.h
+--- a/examples/examples_common.h
++++ b/examples/diana7/examples_common.h
+@@ -70,6 +70,6 @@ class MotionGenerator {
+   double time_ = 0.0;
+ 
+   Vector7d dq_max_ = (Vector7d() << 2.0, 2.0, 2.0, 2.0, 2.5, 2.5, 2.5).finished();
+-  Vector7d ddq_max_start_ = (Vector7d() << 5, 5, 5, 5, 5, 5, 5).finished();
+-  Vector7d ddq_max_goal_ = (Vector7d() << 5, 5, 5, 5, 5, 5, 5).finished();
++  Vector7d ddq_max_start_ = (Vector7d() << 1, 1, 1, 1, 1, 1, 1).finished();
++  Vector7d ddq_max_goal_ = (Vector7d() << 1, 1, 1, 1, 1, 1, 1).finished();
+ };
+diff --git a/examples/force_control.cpp b/examples/diana7/force_control.cpp
+similarity index 100%
+rename from examples/force_control.cpp
+rename to examples/diana7/force_control.cpp
+diff --git a/examples/generate_cartesian_pose_motion.cpp b/examples/diana7/generate_cartesian_pose_motion.cpp
+similarity index 77%
+rename from examples/generate_cartesian_pose_motion.cpp
+rename to examples/diana7/generate_cartesian_pose_motion.cpp
+--- a/examples/generate_cartesian_pose_motion.cpp
++++ b/examples/diana7/generate_cartesian_pose_motion.cpp
+@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -34,14 +34,6 @@ int main(int argc, char** argv) {
+     robot.control(motion_generator);
+     std::cout << "Finished moving to initial joint configuration." << std::endl;
+ 
+-    // Set additional parameters always before the control loop, NEVER in the control loop!
+-    // Set collision behavior.
+-    robot.setCollisionBehavior(
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
+-
+     std::array<double, 16> initial_pose;
+     double time = 0.0;
+     robot.control([&time, &initial_pose](const franka::RobotState& robot_state,
+diff --git a/examples/generate_cartesian_pose_motion_external_control_loop.cpp b/examples/diana7/generate_cartesian_pose_motion_external_control_loop.cpp
+similarity index 81%
+rename from examples/generate_cartesian_pose_motion_external_control_loop.cpp
+rename to examples/diana7/generate_cartesian_pose_motion_external_control_loop.cpp
+--- a/examples/generate_cartesian_pose_motion_external_control_loop.cpp
++++ b/examples/diana7/generate_cartesian_pose_motion_external_control_loop.cpp
+@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -37,14 +37,6 @@ int main(int argc, char** argv) {
+     robot.control(motion_generator);
+     std::cout << "Finished moving to initial joint configuration." << std::endl;
+ 
+-    // Set additional parameters always before the control loop, NEVER in the control loop!
+-    // Set collision behavior.
+-    robot.setCollisionBehavior(
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
+-
+     std::array<double, 16> initial_pose;
+     double time = 0.0;
+ 
+@@ -56,7 +48,6 @@ int main(int argc, char** argv) {
+       if (time == 0.0) {
+         initial_pose = robot_state.O_T_EE_c;
+       }
+-
+       constexpr double kRadius = 0.3;
+       double angle = M_PI / 4 * (1 - std::cos(M_PI / 5.0 * time));
+       double delta_x = kRadius * std::sin(angle);
+@@ -64,7 +55,7 @@ int main(int argc, char** argv) {
+ 
+       std::array<double, 16> new_pose = initial_pose;
+       new_pose[12] += delta_x;
+-      new_pose[14] += delta_z;
++      new_pose[14] +=  delta_z;
+ 
+       if (time >= 10.0) {
+         std::cout << std::endl << "Finished motion, shutting down example" << std::endl;
+diff --git a/examples/generate_cartesian_velocity_motion.cpp b/examples/diana7/generate_cartesian_velocity_motion.cpp
+similarity index 58%
+rename from examples/generate_cartesian_velocity_motion.cpp
+rename to examples/diana7/generate_cartesian_velocity_motion.cpp
+--- a/examples/generate_cartesian_velocity_motion.cpp
++++ b/examples/diana7/generate_cartesian_velocity_motion.cpp
+@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -34,28 +34,6 @@ int main(int argc, char** argv) {
+     robot.control(motion_generator);
+     std::cout << "Finished moving to initial joint configuration." << std::endl;
+ 
+-    // Set additional parameters always before the control loop, NEVER in the control loop!
+-    // Set the joint impedance.
+-    robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
+-
+-    // Set the collision behavior.
+-    std::array<double, 7> lower_torque_thresholds_nominal{
+-        {25.0, 25.0, 22.0, 20.0, 19.0, 17.0, 14.}};
+-    std::array<double, 7> upper_torque_thresholds_nominal{
+-        {35.0, 35.0, 32.0, 30.0, 29.0, 27.0, 24.0}};
+-    std::array<double, 7> lower_torque_thresholds_acceleration{
+-        {25.0, 25.0, 22.0, 20.0, 19.0, 17.0, 14.0}};
+-    std::array<double, 7> upper_torque_thresholds_acceleration{
+-        {35.0, 35.0, 32.0, 30.0, 29.0, 27.0, 24.0}};
+-    std::array<double, 6> lower_force_thresholds_nominal{{30.0, 30.0, 30.0, 25.0, 25.0, 25.0}};
+-    std::array<double, 6> upper_force_thresholds_nominal{{40.0, 40.0, 40.0, 35.0, 35.0, 35.0}};
+-    std::array<double, 6> lower_force_thresholds_acceleration{{30.0, 30.0, 30.0, 25.0, 25.0, 25.0}};
+-    std::array<double, 6> upper_force_thresholds_acceleration{{40.0, 40.0, 40.0, 35.0, 35.0, 35.0}};
+-    robot.setCollisionBehavior(
+-        lower_torque_thresholds_acceleration, upper_torque_thresholds_acceleration,
+-        lower_torque_thresholds_nominal, upper_torque_thresholds_nominal,
+-        lower_force_thresholds_acceleration, upper_force_thresholds_acceleration,
+-        lower_force_thresholds_nominal, upper_force_thresholds_nominal);
+ 
+     double time_max = 4.0;
+     double v_max = 0.1;
+diff --git a/examples/generate_cartesian_velocity_motion_external_control_loop.cpp b/examples/diana7/generate_cartesian_velocity_motion_external_control_loop.cpp
+similarity index 93%
+rename from examples/generate_cartesian_velocity_motion_external_control_loop.cpp
+rename to examples/diana7/generate_cartesian_velocity_motion_external_control_loop.cpp
+--- a/examples/generate_cartesian_velocity_motion_external_control_loop.cpp
++++ b/examples/diana7/generate_cartesian_velocity_motion_external_control_loop.cpp
+@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -38,10 +38,6 @@ int main(int argc, char** argv) {
+     robot.control(motion_generator);
+     std::cout << "Finished moving to initial joint configuration." << std::endl;
+ 
+-    // Set additional parameters always before the control loop, NEVER in the control loop!
+-    // Set the joint impedance.
+-    robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
+-
+     // Set the collision behavior.
+     std::array<double, 7> lower_torque_thresholds_nominal{
+         {25.0, 25.0, 22.0, 20.0, 19.0, 17.0, 14.}};
+diff --git a/examples/generate_consecutive_motions.cpp b/examples/diana7/generate_consecutive_motions.cpp
+similarity index 97%
+rename from examples/generate_consecutive_motions.cpp
+rename to examples/diana7/generate_consecutive_motions.cpp
+--- a/examples/generate_consecutive_motions.cpp
++++ b/examples/diana7/generate_consecutive_motions.cpp
+@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+diff --git a/examples/generate_elbow_motion.cpp b/examples/diana7/generate_elbow_motion.cpp
+similarity index 75%
+rename from examples/generate_elbow_motion.cpp
+rename to examples/diana7/generate_elbow_motion.cpp
+--- a/examples/generate_elbow_motion.cpp
++++ b/examples/diana7/generate_elbow_motion.cpp
+@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -34,14 +34,6 @@ int main(int argc, char** argv) {
+     robot.control(motion_generator);
+     std::cout << "Finished moving to initial joint configuration." << std::endl;
+ 
+-    // Set additional parameters always before the control loop, NEVER in the control loop!
+-    // Set collision behavior.
+-    robot.setCollisionBehavior(
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
+-
+     std::array<double, 16> initial_pose;
+     std::array<double, 2> initial_elbow;
+     double time = 0.0;
+@@ -55,7 +47,7 @@ int main(int argc, char** argv) {
+             initial_elbow = robot_state.elbow;
+           }
+ 
+-          double angle = M_PI / 10.0 * (1.0 - std::cos(M_PI / 5.0 * time));
++          double angle = M_PI / 16.0 * (1.0 - std::cos(M_PI / 5.0 * time));
+ 
+           auto elbow = initial_elbow;
+           elbow[0] += angle;
+diff --git a/examples/generate_joint_position_motion.cpp b/examples/diana7/generate_joint_position_motion.cpp
+similarity index 77%
+rename from examples/generate_joint_position_motion.cpp
+rename to examples/diana7/generate_joint_position_motion.cpp
+--- a/examples/generate_joint_position_motion.cpp
++++ b/examples/diana7/generate_joint_position_motion.cpp
+@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -34,14 +34,6 @@ int main(int argc, char** argv) {
+     robot.control(motion_generator);
+     std::cout << "Finished moving to initial joint configuration." << std::endl;
+ 
+-    // Set additional parameters always before the control loop, NEVER in the control loop!
+-    // Set collision behavior.
+-    robot.setCollisionBehavior(
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
+-
+     std::array<double, 7> initial_position;
+     double time = 0.0;
+     robot.control([&initial_position, &time](const franka::RobotState& robot_state,
+@@ -55,7 +47,7 @@ int main(int argc, char** argv) {
+       double delta_angle = M_PI / 8.0 * (1 - std::cos(M_PI / 2.5 * time));
+ 
+       franka::JointPositions output = {{initial_position[0], initial_position[1],
+-                                        initial_position[2], initial_position[3] + delta_angle,
++                                        initial_position[2], initial_position[3] + delta_angle / 2,
+                                         initial_position[4] + delta_angle, initial_position[5],
+                                         initial_position[6] + delta_angle}};
+ 
+diff --git a/examples/generate_joint_position_motion_external_control_loop.cpp b/examples/diana7/generate_joint_position_motion_external_control_loop.cpp
+similarity index 96%
+rename from examples/generate_joint_position_motion_external_control_loop.cpp
+rename to examples/diana7/generate_joint_position_motion_external_control_loop.cpp
+--- a/examples/generate_joint_position_motion_external_control_loop.cpp
++++ b/examples/diana7/generate_joint_position_motion_external_control_loop.cpp
+@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
+ 
+       std::array<double, 7> target_positions = {
+           {initial_position[0], initial_position[1], initial_position[2],
+-           initial_position[3] + delta_angle, initial_position[4] + delta_angle,
++           initial_position[3] + delta_angle / 2, initial_position[4] + delta_angle / 2,
+            initial_position[5], initial_position[6] + delta_angle}};
+ 
+       // Compute velocity limits based on current joint position using rate limiter parameters
+diff --git a/examples/generate_joint_velocity_motion.cpp b/examples/diana7/generate_joint_velocity_motion.cpp
+similarity index 75%
+rename from examples/generate_joint_velocity_motion.cpp
+rename to examples/diana7/generate_joint_velocity_motion.cpp
+--- a/examples/generate_joint_velocity_motion.cpp
++++ b/examples/diana7/generate_joint_velocity_motion.cpp
+@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -34,14 +34,6 @@ int main(int argc, char** argv) {
+     robot.control(motion_generator);
+     std::cout << "Finished moving to initial joint configuration." << std::endl;
+ 
+-    // Set additional parameters always before the control loop, NEVER in the control loop!
+-    // Set collision behavior.
+-    robot.setCollisionBehavior(
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}},
+-        {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
+-
+     double time_max = 1.0;
+     double omega_max = 1.0;
+     double time = 0.0;
+@@ -52,7 +44,7 @@ int main(int argc, char** argv) {
+           double cycle = std::floor(std::pow(-1.0, (time - std::fmod(time, time_max)) / time_max));
+           double omega = cycle * omega_max / 2.0 * (1.0 - std::cos(2.0 * M_PI / time_max * time));
+ 
+-          franka::JointVelocities velocities = {{0.0, 0.0, 0.0, omega, omega, omega, omega}};
++          franka::JointVelocities velocities = {{0.0, 0.0, 0.0, omega / 2, omega, omega, omega}};
+ 
+           if (time >= 2 * time_max) {
+             std::cout << std::endl << "Finished motion, shutting down example" << std::endl;
+diff --git a/examples/generate_joint_velocity_motion_external_control_loop.cpp b/examples/diana7/generate_joint_velocity_motion_external_control_loop.cpp
+similarity index 96%
+rename from examples/generate_joint_velocity_motion_external_control_loop.cpp
+rename to examples/diana7/generate_joint_velocity_motion_external_control_loop.cpp
+--- a/examples/generate_joint_velocity_motion_external_control_loop.cpp
++++ b/examples/diana7/generate_joint_velocity_motion_external_control_loop.cpp
+@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
+       double cycle = std::floor(std::pow(-1.0, (time - std::fmod(time, time_max)) / time_max));
+       double omega = cycle * omega_max / 2.0 * (1.0 - std::cos(2.0 * M_PI / time_max * time));
+ 
+-      franka::JointVelocities velocities = {{0.0, 0.0, 0.0, omega, omega, omega, omega}};
++      franka::JointVelocities velocities = {{0.0, 0.0, 0.0, omega / 2, omega, omega, omega}};
+ 
+       if (time >= 2 * time_max) {
+         std::cout << std::endl << "Finished motion, shutting down example" << std::endl;
+diff --git a/examples/grasp_object.cpp b/examples/diana7/grasp_object.cpp
+similarity index 100%
+rename from examples/grasp_object.cpp
+rename to examples/diana7/grasp_object.cpp
+diff --git a/examples/joint_impedance_control.cpp b/examples/diana7/joint_impedance_control.cpp
+similarity index 99%
+rename from examples/joint_impedance_control.cpp
+rename to examples/diana7/joint_impedance_control.cpp
+--- a/examples/joint_impedance_control.cpp
++++ b/examples/diana7/joint_impedance_control.cpp
+@@ -105,7 +105,7 @@ int main(int argc, char** argv) {  // NOLINT(readability-function-cognitive-comp
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+diff --git a/examples/joint_point_to_point_motion.cpp b/examples/diana7/joint_point_to_point_motion.cpp
+similarity index 97%
+rename from examples/joint_point_to_point_motion.cpp
+rename to examples/diana7/joint_point_to_point_motion.cpp
+--- a/examples/joint_point_to_point_motion.cpp
++++ b/examples/diana7/joint_point_to_point_motion.cpp
+@@ -39,8 +39,8 @@ int main(int argc, char** argv) {
+     robot.setCollisionBehavior(
+         {{20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0}}, {{20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0}},
+         {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
+-        {{20.0, 20.0, 20.0, 20.0, 20.0, 20.0}}, {{20.0, 20.0, 20.0, 20.0, 20.0, 20.0}},
+-        {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}});
++        {{20.0, 20.0, 20.0, 20.0, 20.0, 20.0}}, {{20.0, 20.0, 20.0, 20.0, 20.0, 30.0}},
++        {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 30.0}});
+ 
+     MotionGenerator motion_generator(speed_factor, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+diff --git a/examples/motion_with_control.cpp b/examples/diana7/motion_with_control.cpp
+similarity index 98%
+rename from examples/motion_with_control.cpp
+rename to examples/diana7/motion_with_control.cpp
+--- a/examples/motion_with_control.cpp
++++ b/examples/diana7/motion_with_control.cpp
+@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, M_PI_2, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+diff --git a/examples/motion_with_control_external_control_loop.cpp b/examples/diana7/motion_with_control_external_control_loop.cpp
+similarity index 98%
+rename from examples/motion_with_control_external_control_loop.cpp
+rename to examples/diana7/motion_with_control_external_control_loop.cpp
+--- a/examples/motion_with_control_external_control_loop.cpp
++++ b/examples/diana7/motion_with_control_external_control_loop.cpp
+@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
+     setDefaultBehavior(robot);
+ 
+     // First move the robot to a suitable joint configuration
+-    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, -3 * M_PI_4, 0, M_PI_2, M_PI_4}};
++    std::array<double, 7> q_goal = {{0, -M_PI_4, 0, 3 * M_PI_4, 0, -M_PI_2, M_PI_4}};
+     MotionGenerator motion_generator(0.5, q_goal);
+     std::cout << "WARNING: This example will move the robot! "
+               << "Please make sure to have the user stop button at hand!" << std::endl
+@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
+       }
+ 
+       franka::JointVelocities velocities{{0, 0, 0, 0, 0, 0, 0}};
+-      velocities.dq[joint_number] = trajectory[index];
++      velocities.dq[joint_number] = -trajectory[index];
+ 
+       if (index >= trajectory.size() - 1) {
+         return franka::MotionFinished(velocities);
+diff --git a/examples/print_joint_poses.cpp b/examples/diana7/print_joint_poses.cpp
+similarity index 100%
+rename from examples/print_joint_poses.cpp
+rename to examples/diana7/print_joint_poses.cpp
+diff --git a/examples/vacuum_object.cpp b/examples/diana7/vacuum_object.cpp
+similarity index 100%
+rename from examples/vacuum_object.cpp
+rename to examples/diana7/vacuum_object.cpp
+diff --git a/include/franka/rate_limiting.h b/include/franka/rate_limiting.h
+deleted file mode 100644
+--- a/include/franka/rate_limiting.h
++++ /dev/null
+@@ -1,381 +0,0 @@
+-// Copyright (c) 2023 Franka Robotics GmbH
+-// Use of this source code is governed by the Apache-2.0 license, see LICENSE
+-#pragma once
+-
+-#include <algorithm>
+-#include <array>
+-#include <cmath>
+-#include <limits>
+-
+-/**
+- * @file rate_limiting.h
+- * Contains functions for limiting the rate of torques, Cartesian pose, Cartesian velocity,
+- * joint position and joint velocity.
+- */
+-
+-namespace franka {
+-/**
+- * Sample time constant
+- */
+-constexpr double kDeltaT = 1e-3;
+-/**
+- * Epsilon value for checking limits
+- */
+-constexpr double kLimitEps = 1e-3;
+-/**
+- * Epsilon value for limiting Cartesian accelerations/jerks or not
+- */
+-constexpr double kNormEps = std::numeric_limits<double>::epsilon();
+-/**
+- * Number of packets lost considered for the definition of velocity limits.
+- * When a packet is lost, FCI assumes a constant acceleration model.
+- * For FR3 there are no expected package loses. Therefore this number is set to 0. If you
+- * encounter package loses with your setup you can increase this number
+- */
+-constexpr double kTolNumberPacketsLost = 0.0;
+-/**
+- * Factor for the definition of rotational limits using the Cartesian Pose interface
+- */
+-constexpr double kFactorCartesianRotationPoseInterface = 0.99;
+-/**
+- * Maximum torque rate
+- */
+-constexpr std::array<double, 7> kMaxTorqueRate{
+-    {1000 - kLimitEps, 1000 - kLimitEps, 1000 - kLimitEps, 1000 - kLimitEps, 1000 - kLimitEps,
+-     1000 - kLimitEps, 1000 - kLimitEps}};
+-/**
+- * Maximum joint jerk
+- */
+-constexpr std::array<double, 7> kMaxJointJerk{
+-    {5000.0 - kLimitEps, 5000.0 - kLimitEps, 5000.0 - kLimitEps, 5000.0 - kLimitEps,
+-     5000.0 - kLimitEps, 5000.0 - kLimitEps, 5000.0 - kLimitEps}};
+-/**
+- * Maximum joint acceleration
+- */
+-constexpr std::array<double, 7> kMaxJointAcceleration{
+-    {10.0000 - kLimitEps, 10.0000 - kLimitEps, 10.0000 - kLimitEps, 10.0000 - kLimitEps,
+-     10.0000 - kLimitEps, 10.0000 - kLimitEps, 10.0000 - kLimitEps}};
+-/**
+- * Tolerance value for joint velocity limits to deal with numerical errors and data losses.
+- */
+-constexpr std::array<double, 7> kJointVelocityLimitsTolerance{
+-    kLimitEps + kTolNumberPacketsLost * kDeltaT * kMaxJointAcceleration[0],
+-    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[1],
+-    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[2],
+-    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[3],
+-    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[4],
+-    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[5],
+-    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[6],
+-};
+-/**
+- * Maximum translational jerk
+- */
+-constexpr double kMaxTranslationalJerk = 4500.0 - kLimitEps;
+-/**
+- * Maximum translational acceleration
+- */
+-constexpr double kMaxTranslationalAcceleration = 9.0000 - kLimitEps;
+-/**
+- * Maximum translational velocity
+- */
+-constexpr double kMaxTranslationalVelocity =
+-    3.0000 - kLimitEps - kTolNumberPacketsLost * kDeltaT * kMaxTranslationalAcceleration;
+-/**
+- * Maximum rotational jerk
+- */
+-constexpr double kMaxRotationalJerk = 8500.0 - kLimitEps;
+-/**
+- * Maximum rotational acceleration
+- */
+-constexpr double kMaxRotationalAcceleration = 17.0000 - kLimitEps;
+-/**
+- * Maximum rotational velocity
+- */
+-constexpr double kMaxRotationalVelocity =
+-    2.5000 - kLimitEps - kTolNumberPacketsLost * kDeltaT * kMaxRotationalAcceleration;
+-/**
+- * Maximum elbow jerk
+- */
+-constexpr double kMaxElbowJerk = 5000 - kLimitEps;
+-/**
+- * Maximum elbow acceleration
+- */
+-constexpr double kMaxElbowAcceleration = 10.0000 - kLimitEps;
+-
+-/**
+- * Maximum elbow velocity
+- */
+-constexpr double kMaxElbowVelocity =
+-    1.5000 - kLimitEps - kTolNumberPacketsLost * kDeltaT * kMaxElbowAcceleration;
+-
+-/**
+- * Minimum elbow velocity
+- */
+-constexpr double kMinElbowVelocity = -kMaxElbowVelocity;
+-
+-/**
+- * Computes the maximum joint velocity based on joint position
+- *
+- * @note The implementation is based on
+- * https://frankarobotics.github.io/docs/control_parameters.html#limits-for-franka-research-3.
+- *
+- * @param[in] q joint position.
+- *
+- * @return Upper limits of joint velocity at the given joint position.
+- *
+- * @deprecated This function is deprecated and will be removed in future versions.
+- * Use `Robot::getUpperJointVelocityLimits(const std::array<double, 7UL> &joint_positions)` instead
+- * (if applicable).
+- */
+-[[deprecated(
+-    "Use Robot::getUpperJointVelocityLimits(const std::array<double, 7UL> &joint_positions) "
+-    "instead with system images >= 5.9.0.")]] inline std::array<double, 7>
+-computeUpperLimitsJointVelocity(
+-    const std::array<double, 7>& q) {  // NOLINT(readability-identifier-length)
+-  return std::array<double, 7>{
+-      std::min(2.62, std::max(0.0, -0.30 + std::sqrt(std::max(0.0, 12.0 * (2.75010 - q[0]))))) -
+-          kJointVelocityLimitsTolerance[0],
+-      std::min(2.62, std::max(0.0, -0.20 + std::sqrt(std::max(0.0, 5.17 * (1.79180 - q[1]))))) -
+-          kJointVelocityLimitsTolerance[1],
+-      std::min(2.62, std::max(0.0, -0.20 + std::sqrt(std::max(0.0, 7.00 * (2.90650 - q[2]))))) -
+-          kJointVelocityLimitsTolerance[2],
+-      std::min(2.62, std::max(0.0, -0.30 + std::sqrt(std::max(0.0, 8.00 * (-0.1458 - q[3]))))) -
+-          kJointVelocityLimitsTolerance[3],
+-      std::min(5.26, std::max(0.0, -0.35 + std::sqrt(std::max(0.0, 34.0 * (2.81010 - q[4]))))) -
+-          kJointVelocityLimitsTolerance[4],
+-      std::min(4.18, std::max(0.0, -0.35 + std::sqrt(std::max(0.0, 11.0 * (4.52050 - q[5]))))) -
+-          kJointVelocityLimitsTolerance[5],
+-      std::min(5.26, std::max(0.0, -0.35 + std::sqrt(std::max(0.0, 34.0 * (3.01960 - q[6]))))) -
+-          kJointVelocityLimitsTolerance[6],
+-  };
+-}
+-
+-/**
+- * Computes the minimum joint velocity based on joint position
+- *
+- * @note The implementation is based on
+- * https://frankarobotics.github.io/docs/control_parameters.html#limits-for-franka-research-3.
+- *
+- * @param[in] q joint position.
+- *
+- * @return Lower limits of joint velocity at the given joint position.
+- *
+- * @deprecated This function is deprecated and will be removed in future versions.
+- * Use `Robot::getlowerJointVelocityLimits(const std::array<double, 7UL> &joint_positions)` instead
+- * (if applicable).
+- */
+-[[deprecated(
+-    "Use Robot::getlowerJointVelocityLimits(const std::array<double, 7UL> &joint_positions) "
+-    "instead with system images >= 5.9.0.")]] inline std::array<double, 7>
+-computeLowerLimitsJointVelocity(
+-    const std::array<double, 7>& q) {  // NOLINT(readability-identifier-length)
+-  return std::array<double, 7>{
+-      std::max(-2.62, std::min(0.0, 0.30 - std::sqrt(std::max(0.0, 12.0 * (2.750100 + q[0]))))) +
+-          kJointVelocityLimitsTolerance[0],
+-      std::max(-2.62, std::min(0.0, 0.20 - std::sqrt(std::max(0.0, 5.17 * (1.791800 + q[1]))))) +
+-          kJointVelocityLimitsTolerance[1],
+-      std::max(-2.62, std::min(0.0, 0.20 - std::sqrt(std::max(0.0, 7.00 * (2.906500 + q[2]))))) +
+-          kJointVelocityLimitsTolerance[2],
+-      std::max(-2.62, std::min(0.0, 0.30 - std::sqrt(std::max(0.0, 8.00 * (3.048100 + q[3]))))) +
+-          kJointVelocityLimitsTolerance[3],
+-      std::max(-5.26, std::min(0.0, 0.35 - std::sqrt(std::max(0.0, 34.0 * (2.810100 + q[4]))))) +
+-          kJointVelocityLimitsTolerance[4],
+-      std::max(-4.18, std::min(0.0, 0.35 - std::sqrt(std::max(0.0, 11.0 * (-0.54092 + q[5]))))) +
+-          kJointVelocityLimitsTolerance[5],
+-      std::max(-5.26, std::min(0.0, 0.35 - std::sqrt(std::max(0.0, 34.0 * (3.019600 + q[6]))))) +
+-          kJointVelocityLimitsTolerance[6],
+-  };
+-}
+-
+-/**
+- * Limits the rate of an input vector of per-joint commands considering the maximum allowed
+- * time derivatives.
+- *
+- * @note
+- * FCI filters must be deactivated to work properly.
+- *
+- * @param[in] max_derivatives Per-joint maximum allowed time derivative.
+- * @param[in] commanded_values Commanded values of the current time step.
+- * @param[in] last_commanded_values Commanded values of the previous time step.
+- *
+- * @throw std::invalid_argument if commanded_values are infinite or NaN.
+- *
+- * @return Rate-limited vector of desired values.
+- */
+-std::array<double, 7> limitRate(const std::array<double, 7>& max_derivatives,
+-                                const std::array<double, 7>& commanded_values,
+-                                const std::array<double, 7>& last_commanded_values);
+-
+-/**
+- * Limits the rate of a desired joint velocity considering the limits provided.
+- *
+- * @note
+- * FCI filters must be deactivated to work properly.
+- *
+- * @param[in] upper_limits_velocity Upper limits of allowed velocity.
+- * @param[in] lower_limits_velocity Lower limits of allowed velocity.
+- * @param[in] max_acceleration Maximum allowed acceleration.
+- * @param[in] max_jerk Maximum allowed jerk.
+- * @param[in] commanded_velocity Commanded joint velocity of the current time step.
+- * @param[in] last_commanded_velocity Commanded joint velocity of the previous time step.
+- * @param[in] last_commanded_acceleration Commanded joint acceleration of the previous time step.
+- *
+- * @throw std::invalid_argument if commanded_velocity is infinite or NaN.
+- *
+- * @return Rate-limited desired joint velocity.
+- */
+-double limitRate(double upper_limits_velocity,
+-                 double lower_limits_velocity,
+-                 double max_acceleration,
+-                 double max_jerk,
+-                 double commanded_velocity,
+-                 double last_commanded_velocity,
+-                 double last_commanded_acceleration);
+-
+-/**
+- * Limits the rate of a desired joint position considering the limits provided.
+- *
+- * @note
+- * FCI filters must be deactivated to work properly.
+- *
+- * @param[in] upper_limits_velocity Upper limits of allowed velocity.
+- * @param[in] lower_limits_velocity Lower limits of allowed velocity.
+- * @param[in] max_acceleration Maximum allowed acceleration.
+- * @param[in] max_jerk Maximum allowed jerk.
+- * @param[in] commanded_position Commanded joint position of the current time step.
+- * @param[in] last_commanded_position Commanded joint position of the previous time step.
+- * @param[in] last_commanded_velocity Commanded joint velocity of the previous time step.
+- * @param[in] last_commanded_acceleration Commanded joint acceleration of the previous time step.
+- *
+- * @throw std::invalid_argument if commanded_position is infinite or NaN.
+- *
+- * @return Rate-limited desired joint position.
+- */
+-double limitRate(double upper_limits_velocity,
+-                 double lower_limits_velocity,
+-                 double max_acceleration,
+-                 double max_jerk,
+-                 double commanded_position,
+-                 double last_commanded_position,
+-                 double last_commanded_velocity,
+-                 double last_commanded_acceleration);
+-
+-/**
+- * Limits the rate of a desired joint velocity considering the limits provided.
+- *
+- * @note
+- * FCI filters must be deactivated to work properly.
+- *
+- * @param[in] upper_limits_velocity Per-joint upper limits of allowed velocity.
+- * @param[in] lower_limits_velocity Per-joint lower limits of allowed velocity.
+- * @param[in] max_acceleration Per-joint maximum allowed acceleration.
+- * @param[in] max_jerk Per-joint maximum allowed jerk.
+- * @param[in] commanded_velocities Commanded joint velocity of the current time step.
+- * @param[in] last_commanded_velocities Commanded joint velocities of the previous time step.
+- * @param[in] last_commanded_accelerations Commanded joint accelerations of the previous time step.
+- *
+- * @throw std::invalid_argument if commanded_velocities are infinite or NaN.
+- *
+- * @return Rate-limited vector of desired joint velocities.
+- */
+-std::array<double, 7> limitRate(const std::array<double, 7>& upper_limits_velocity,
+-                                const std::array<double, 7>& lower_limits_velocity,
+-                                const std::array<double, 7>& max_acceleration,
+-                                const std::array<double, 7>& max_jerk,
+-                                const std::array<double, 7>& commanded_velocities,
+-                                const std::array<double, 7>& last_commanded_velocities,
+-                                const std::array<double, 7>& last_commanded_accelerations);
+-
+-/**
+- * Limits the rate of a desired joint position considering the limits provided.
+- *
+- * @note
+- * FCI filters must be deactivated to work properly.
+- *
+- * @param[in] upper_limits_velocity Per-joint upper limits of allowed velocity.
+- * @param[in] lower_limits_velocity Per-joint lower limits of allowed velocity.
+- * @param[in] max_acceleration Per-joint maximum allowed acceleration.
+- * @param[in] max_jerk Per-joint maximum allowed jerk.
+- * @param[in] commanded_positions Commanded joint positions of the current time step.
+- * @param[in] last_commanded_positions Commanded joint positions of the previous time step.
+- * @param[in] last_commanded_velocities Commanded joint velocities of the previous time step.
+- * @param[in] last_commanded_accelerations Commanded joint accelerations of the previous time step.
+- *
+- * @throw std::invalid_argument if commanded_positions are infinite or NaN.
+- *
+- * @return Rate-limited vector of desired joint positions.
+- */
+-std::array<double, 7> limitRate(const std::array<double, 7>& upper_limits_velocity,
+-                                const std::array<double, 7>& lower_limits_velocity,
+-                                const std::array<double, 7>& max_acceleration,
+-                                const std::array<double, 7>& max_jerk,
+-                                const std::array<double, 7>& commanded_positions,
+-                                const std::array<double, 7>& last_commanded_positions,
+-                                const std::array<double, 7>& last_commanded_velocities,
+-                                const std::array<double, 7>& last_commanded_accelerations);
+-
+-/**
+- * Limits the rate of a desired Cartesian velocity considering the limits provided.
+- *
+- * @note
+- * FCI filters must be deactivated to work properly.
+- *
+- * @param[in] max_translational_velocity Maximum translational velocity.
+- * @param[in] max_translational_acceleration Maximum translational acceleration.
+- * @param[in] max_translational_jerk Maximum translational jerk.
+- * @param[in] max_rotational_velocity Maximum rotational velocity.
+- * @param[in] max_rotational_acceleration Maximum rotational acceleration.
+- * @param[in] max_rotational_jerk Maximum rotational jerk.
+- * @param[in] O_dP_EE_c Commanded end effector twist of the current time step.
+- * @param[in] last_O_dP_EE_c Commanded end effector twist of the previous time step.
+- * @param[in] last_O_ddP_EE_c Commanded end effector acceleration of the previous time step.
+- *
+- * @throw std::invalid_argument if an element of O_dP_EE_c is infinite or NaN.
+- *
+- * @return Rate-limited desired end effector twist.
+- */
+-std::array<double, 6> limitRate(
+-    double max_translational_velocity,
+-    double max_translational_acceleration,
+-    double max_translational_jerk,
+-    double max_rotational_velocity,
+-    double max_rotational_acceleration,
+-    double max_rotational_jerk,
+-    const std::array<double, 6>& O_dP_EE_c,         // NOLINT(readability-identifier-naming)
+-    const std::array<double, 6>& last_O_dP_EE_c,    // NOLINT(readability-identifier-naming)
+-    const std::array<double, 6>& last_O_ddP_EE_c);  // NOLINT(readability-identifier-naming)
+-
+-/**
+- * Limits the rate of a desired Cartesian pose considering the limits provided.
+- *
+- * @note
+- * FCI filters must be deactivated to work properly.
+- *
+- * @param[in] max_translational_velocity Maximum translational velocity.
+- * @param[in] max_translational_acceleration Maximum translational acceleration.
+- * @param[in] max_translational_jerk Maximum translational jerk.
+- * @param[in] max_rotational_velocity Maximum rotational velocity.
+- * @param[in] max_rotational_acceleration Maximum rotational acceleration.
+- * @param[in] max_rotational_jerk Maximum rotational jerk.
+- * @param[in] O_T_EE_c Commanded pose of the current time step.
+- * @param[in] last_O_T_EE_c Commanded pose of the previous time step.
+- * @param[in] last_O_dP_EE_c Commanded end effector twist of the previous time step.
+- * @param[in] last_O_ddP_EE_c Commanded end effector acceleration of the previous time step.
+- *
+- * @throw std::invalid_argument if an element of O_T_EE_c is infinite or NaN.
+- *
+- * @return Rate-limited desired pose.
+- */
+-std::array<double, 16> limitRate(
+-    double max_translational_velocity,
+-    double max_translational_acceleration,
+-    double max_translational_jerk,
+-    double max_rotational_velocity,
+-    double max_rotational_acceleration,
+-    double max_rotational_jerk,
+-    const std::array<double, 16>& O_T_EE_c,         // NOLINT(readability-identifier-naming)
+-    const std::array<double, 16>& last_O_T_EE_c,    // NOLINT(readability-identifier-naming)
+-    const std::array<double, 6>& last_O_dP_EE_c,    // NOLINT(readability-identifier-naming)
+-    const std::array<double, 6>& last_O_ddP_EE_c);  // NOLINT(readability-identifier-naming)
+-
+-}  // namespace franka
+diff --git a/include/franka/rate_limiting.h b/include/franka/rate_limiting.h
+new file mode 120000
+--- /dev/null
++++ b/include/franka/rate_limiting.h
+@@ -0,0 +1 @@
++rate_limiting_diana7.h
+\ No newline at end of file
+diff --git a/include/franka/rate_limiting_diana7.h b/include/franka/rate_limiting_diana7.h
+new file mode 100644
+--- /dev/null
++++ b/include/franka/rate_limiting_diana7.h
+@@ -0,0 +1,382 @@
++// Copyright (c) 2023 Franka Robotics GmbH
++// Copyright (c) 2026 Agile Robots SE (modifications: adapted for Diana robots)
++// Use of this source code is governed by the Apache-2.0 license, see LICENSE
++#pragma once
++
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <limits>
++
++/**
++ * @file rate_limiting.h
++ * Contains functions for limiting the rate of torques, Cartesian pose, Cartesian velocity,
++ * joint position and joint velocity.
++ */
++
++namespace franka {
++/**
++ * Sample time constant
++ */
++constexpr double kDeltaT = 1e-3;
++/**
++ * Epsilon value for checking limits
++ */
++constexpr double kLimitEps = 1e-3;
++/**
++ * Epsilon value for limiting Cartesian accelerations/jerks or not
++ */
++constexpr double kNormEps = std::numeric_limits<double>::epsilon();
++/**
++ * Number of packets lost considered for the definition of velocity limits.
++ * When a packet is lost, FCI assumes a constant acceleration model.
++ * For FR3 there are no expected package loses. Therefore this number is set to 0. If you
++ * encounter package loses with your setup you can increase this number
++ */
++constexpr double kTolNumberPacketsLost = 0.0;
++/**
++ * Factor for the definition of rotational limits using the Cartesian Pose interface
++ */
++constexpr double kFactorCartesianRotationPoseInterface = 0.99;
++/**
++ * Maximum torque rate
++ */
++constexpr std::array<double, 7> kMaxTorqueRate{
++    {5000 - kLimitEps, 3000 - kLimitEps, 3000 - kLimitEps, 2000 - kLimitEps, 2000 - kLimitEps,
++     2000 - kLimitEps, 2000 - kLimitEps}};
++/**
++ * Maximum joint jerk
++ */
++constexpr std::array<double, 7> kMaxJointJerk{
++    {5000.0 - kLimitEps, 5000.0 - kLimitEps, 5500.0 - kLimitEps, 5500.0 - kLimitEps,
++     7000.0 - kLimitEps, 7000.0 - kLimitEps, 7000.0 - kLimitEps}};
++/**
++ * Maximum joint acceleration
++ */
++constexpr std::array<double, 7> kMaxJointAcceleration{
++    {9.424777961 - kLimitEps, 9.424777961 - kLimitEps, 10.995574288 - kLimitEps, 10.995574288 - kLimitEps,
++     14.137166941 - kLimitEps, 14.137166941 - kLimitEps, 14.137166941 - kLimitEps}};
++/**
++ * Tolerance value for joint velocity limits to deal with numerical errors and data losses.
++ */
++constexpr std::array<double, 7> kJointVelocityLimitsTolerance{
++    kLimitEps + kTolNumberPacketsLost * kDeltaT * kMaxJointAcceleration[0],
++    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[1],
++    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[2],
++    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[3],
++    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[4],
++    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[5],
++    kLimitEps + kTolNumberPacketsLost* kDeltaT* kMaxJointAcceleration[6],
++};
++/**
++ * Maximum translational jerk
++ */
++constexpr double kMaxTranslationalJerk = 3000.0 - kLimitEps;
++/**
++ * Maximum translational acceleration
++ */
++constexpr double kMaxTranslationalAcceleration = 6.0000 - kLimitEps;
++/**
++ * Maximum translational velocity
++ */
++constexpr double kMaxTranslationalVelocity =
++    2.0000 - kLimitEps - kTolNumberPacketsLost * kDeltaT * kMaxTranslationalAcceleration;
++/**
++ * Maximum rotational jerk
++ */
++constexpr double kMaxRotationalJerk = 6500.0 - kLimitEps;
++/**
++ * Maximum rotational acceleration
++ */
++constexpr double kMaxRotationalAcceleration = 12.5663706144 - kLimitEps;
++/**
++ * Maximum rotational velocity
++ */
++constexpr double kMaxRotationalVelocity =
++    3.14159265359 - kLimitEps - kTolNumberPacketsLost * kDeltaT * kMaxRotationalAcceleration;
++/**
++ * Maximum elbow jerk
++ */
++constexpr double kMaxElbowJerk = 5500 - kLimitEps;
++/**
++ * Maximum elbow acceleration
++ */
++constexpr double kMaxElbowAcceleration = 10.995574288 - kLimitEps;
++
++/**
++ * Maximum elbow velocity
++ */
++constexpr double kMaxElbowVelocity =
++    3.6651914292 - kLimitEps - kTolNumberPacketsLost * kDeltaT * kMaxElbowAcceleration;
++
++/**
++ * Minimum elbow velocity
++ */
++constexpr double kMinElbowVelocity = -kMaxElbowVelocity;
++
++/**
++ * Computes the maximum joint velocity based on joint position
++ *
++ * @note The implementation is based on
++ * https://frankarobotics.github.io/docs/control_parameters.html#limits-for-franka-research-3.
++ *
++ * @param[in] q joint position.
++ *
++ * @return Upper limits of joint velocity at the given joint position.
++ *
++ * @deprecated This function is deprecated and will be removed in future versions.
++ * Use `Robot::getUpperJointVelocityLimits(const std::array<double, 7UL> &joint_positions)` instead
++ * (if applicable).
++ */
++[[deprecated(
++    "Use Robot::getUpperJointVelocityLimits(const std::array<double, 7UL> &joint_positions) "
++    "instead with system images >= 5.9.0.")]] inline std::array<double, 7>
++computeUpperLimitsJointVelocity(
++    const std::array<double, 7>& q) {  // NOLINT(readability-identifier-length)
++  return std::array<double, 7>{
++      std::min(2.62, std::max(0.0, -0.30 + std::sqrt(std::max(0.0, 12.0 * (2.75010 - q[0]))))) -
++          kJointVelocityLimitsTolerance[0],
++      std::min(2.62, std::max(0.0, -0.20 + std::sqrt(std::max(0.0, 5.17 * (1.79180 - q[1]))))) -
++          kJointVelocityLimitsTolerance[1],
++      std::min(2.62, std::max(0.0, -0.20 + std::sqrt(std::max(0.0, 7.00 * (2.90650 - q[2]))))) -
++          kJointVelocityLimitsTolerance[2],
++      std::min(2.62, std::max(0.0, -0.30 + std::sqrt(std::max(0.0, 8.00 * (-0.1458 - q[3]))))) -
++          kJointVelocityLimitsTolerance[3],
++      std::min(5.26, std::max(0.0, -0.35 + std::sqrt(std::max(0.0, 34.0 * (2.81010 - q[4]))))) -
++          kJointVelocityLimitsTolerance[4],
++      std::min(4.18, std::max(0.0, -0.35 + std::sqrt(std::max(0.0, 11.0 * (4.52050 - q[5]))))) -
++          kJointVelocityLimitsTolerance[5],
++      std::min(5.26, std::max(0.0, -0.35 + std::sqrt(std::max(0.0, 34.0 * (3.01960 - q[6]))))) -
++          kJointVelocityLimitsTolerance[6],
++  };
++}
++
++/**
++ * Computes the minimum joint velocity based on joint position
++ *
++ * @note The implementation is based on
++ * https://frankarobotics.github.io/docs/control_parameters.html#limits-for-franka-research-3.
++ *
++ * @param[in] q joint position.
++ *
++ * @return Lower limits of joint velocity at the given joint position.
++ *
++ * @deprecated This function is deprecated and will be removed in future versions.
++ * Use `Robot::getlowerJointVelocityLimits(const std::array<double, 7UL> &joint_positions)` instead
++ * (if applicable).
++ */
++[[deprecated(
++    "Use Robot::getlowerJointVelocityLimits(const std::array<double, 7UL> &joint_positions) "
++    "instead with system images >= 5.9.0.")]] inline std::array<double, 7>
++computeLowerLimitsJointVelocity(
++    const std::array<double, 7>& q) {  // NOLINT(readability-identifier-length)
++  return std::array<double, 7>{
++      std::max(-2.62, std::min(0.0, 0.30 - std::sqrt(std::max(0.0, 12.0 * (2.750100 + q[0]))))) +
++          kJointVelocityLimitsTolerance[0],
++      std::max(-2.62, std::min(0.0, 0.20 - std::sqrt(std::max(0.0, 5.17 * (1.791800 + q[1]))))) +
++          kJointVelocityLimitsTolerance[1],
++      std::max(-2.62, std::min(0.0, 0.20 - std::sqrt(std::max(0.0, 7.00 * (2.906500 + q[2]))))) +
++          kJointVelocityLimitsTolerance[2],
++      std::max(-2.62, std::min(0.0, 0.30 - std::sqrt(std::max(0.0, 8.00 * (3.048100 + q[3]))))) +
++          kJointVelocityLimitsTolerance[3],
++      std::max(-5.26, std::min(0.0, 0.35 - std::sqrt(std::max(0.0, 34.0 * (2.810100 + q[4]))))) +
++          kJointVelocityLimitsTolerance[4],
++      std::max(-4.18, std::min(0.0, 0.35 - std::sqrt(std::max(0.0, 11.0 * (-0.54092 + q[5]))))) +
++          kJointVelocityLimitsTolerance[5],
++      std::max(-5.26, std::min(0.0, 0.35 - std::sqrt(std::max(0.0, 34.0 * (3.019600 + q[6]))))) +
++          kJointVelocityLimitsTolerance[6],
++  };
++}
++
++/**
++ * Limits the rate of an input vector of per-joint commands considering the maximum allowed
++ * time derivatives.
++ *
++ * @note
++ * FCI filters must be deactivated to work properly.
++ *
++ * @param[in] max_derivatives Per-joint maximum allowed time derivative.
++ * @param[in] commanded_values Commanded values of the current time step.
++ * @param[in] last_commanded_values Commanded values of the previous time step.
++ *
++ * @throw std::invalid_argument if commanded_values are infinite or NaN.
++ *
++ * @return Rate-limited vector of desired values.
++ */
++std::array<double, 7> limitRate(const std::array<double, 7>& max_derivatives,
++                                const std::array<double, 7>& commanded_values,
++                                const std::array<double, 7>& last_commanded_values);
++
++/**
++ * Limits the rate of a desired joint velocity considering the limits provided.
++ *
++ * @note
++ * FCI filters must be deactivated to work properly.
++ *
++ * @param[in] upper_limits_velocity Upper limits of allowed velocity.
++ * @param[in] lower_limits_velocity Lower limits of allowed velocity.
++ * @param[in] max_acceleration Maximum allowed acceleration.
++ * @param[in] max_jerk Maximum allowed jerk.
++ * @param[in] commanded_velocity Commanded joint velocity of the current time step.
++ * @param[in] last_commanded_velocity Commanded joint velocity of the previous time step.
++ * @param[in] last_commanded_acceleration Commanded joint acceleration of the previous time step.
++ *
++ * @throw std::invalid_argument if commanded_velocity is infinite or NaN.
++ *
++ * @return Rate-limited desired joint velocity.
++ */
++double limitRate(double upper_limits_velocity,
++                 double lower_limits_velocity,
++                 double max_acceleration,
++                 double max_jerk,
++                 double commanded_velocity,
++                 double last_commanded_velocity,
++                 double last_commanded_acceleration);
++
++/**
++ * Limits the rate of a desired joint position considering the limits provided.
++ *
++ * @note
++ * FCI filters must be deactivated to work properly.
++ *
++ * @param[in] upper_limits_velocity Upper limits of allowed velocity.
++ * @param[in] lower_limits_velocity Lower limits of allowed velocity.
++ * @param[in] max_acceleration Maximum allowed acceleration.
++ * @param[in] max_jerk Maximum allowed jerk.
++ * @param[in] commanded_position Commanded joint position of the current time step.
++ * @param[in] last_commanded_position Commanded joint position of the previous time step.
++ * @param[in] last_commanded_velocity Commanded joint velocity of the previous time step.
++ * @param[in] last_commanded_acceleration Commanded joint acceleration of the previous time step.
++ *
++ * @throw std::invalid_argument if commanded_position is infinite or NaN.
++ *
++ * @return Rate-limited desired joint position.
++ */
++double limitRate(double upper_limits_velocity,
++                 double lower_limits_velocity,
++                 double max_acceleration,
++                 double max_jerk,
++                 double commanded_position,
++                 double last_commanded_position,
++                 double last_commanded_velocity,
++                 double last_commanded_acceleration);
++
++/**
++ * Limits the rate of a desired joint velocity considering the limits provided.
++ *
++ * @note
++ * FCI filters must be deactivated to work properly.
++ *
++ * @param[in] upper_limits_velocity Per-joint upper limits of allowed velocity.
++ * @param[in] lower_limits_velocity Per-joint lower limits of allowed velocity.
++ * @param[in] max_acceleration Per-joint maximum allowed acceleration.
++ * @param[in] max_jerk Per-joint maximum allowed jerk.
++ * @param[in] commanded_velocities Commanded joint velocity of the current time step.
++ * @param[in] last_commanded_velocities Commanded joint velocities of the previous time step.
++ * @param[in] last_commanded_accelerations Commanded joint accelerations of the previous time step.
++ *
++ * @throw std::invalid_argument if commanded_velocities are infinite or NaN.
++ *
++ * @return Rate-limited vector of desired joint velocities.
++ */
++std::array<double, 7> limitRate(const std::array<double, 7>& upper_limits_velocity,
++                                const std::array<double, 7>& lower_limits_velocity,
++                                const std::array<double, 7>& max_acceleration,
++                                const std::array<double, 7>& max_jerk,
++                                const std::array<double, 7>& commanded_velocities,
++                                const std::array<double, 7>& last_commanded_velocities,
++                                const std::array<double, 7>& last_commanded_accelerations);
++
++/**
++ * Limits the rate of a desired joint position considering the limits provided.
++ *
++ * @note
++ * FCI filters must be deactivated to work properly.
++ *
++ * @param[in] upper_limits_velocity Per-joint upper limits of allowed velocity.
++ * @param[in] lower_limits_velocity Per-joint lower limits of allowed velocity.
++ * @param[in] max_acceleration Per-joint maximum allowed acceleration.
++ * @param[in] max_jerk Per-joint maximum allowed jerk.
++ * @param[in] commanded_positions Commanded joint positions of the current time step.
++ * @param[in] last_commanded_positions Commanded joint positions of the previous time step.
++ * @param[in] last_commanded_velocities Commanded joint velocities of the previous time step.
++ * @param[in] last_commanded_accelerations Commanded joint accelerations of the previous time step.
++ *
++ * @throw std::invalid_argument if commanded_positions are infinite or NaN.
++ *
++ * @return Rate-limited vector of desired joint positions.
++ */
++std::array<double, 7> limitRate(const std::array<double, 7>& upper_limits_velocity,
++                                const std::array<double, 7>& lower_limits_velocity,
++                                const std::array<double, 7>& max_acceleration,
++                                const std::array<double, 7>& max_jerk,
++                                const std::array<double, 7>& commanded_positions,
++                                const std::array<double, 7>& last_commanded_positions,
++                                const std::array<double, 7>& last_commanded_velocities,
++                                const std::array<double, 7>& last_commanded_accelerations);
++
++/**
++ * Limits the rate of a desired Cartesian velocity considering the limits provided.
++ *
++ * @note
++ * FCI filters must be deactivated to work properly.
++ *
++ * @param[in] max_translational_velocity Maximum translational velocity.
++ * @param[in] max_translational_acceleration Maximum translational acceleration.
++ * @param[in] max_translational_jerk Maximum translational jerk.
++ * @param[in] max_rotational_velocity Maximum rotational velocity.
++ * @param[in] max_rotational_acceleration Maximum rotational acceleration.
++ * @param[in] max_rotational_jerk Maximum rotational jerk.
++ * @param[in] O_dP_EE_c Commanded end effector twist of the current time step.
++ * @param[in] last_O_dP_EE_c Commanded end effector twist of the previous time step.
++ * @param[in] last_O_ddP_EE_c Commanded end effector acceleration of the previous time step.
++ *
++ * @throw std::invalid_argument if an element of O_dP_EE_c is infinite or NaN.
++ *
++ * @return Rate-limited desired end effector twist.
++ */
++std::array<double, 6> limitRate(
++    double max_translational_velocity,
++    double max_translational_acceleration,
++    double max_translational_jerk,
++    double max_rotational_velocity,
++    double max_rotational_acceleration,
++    double max_rotational_jerk,
++    const std::array<double, 6>& O_dP_EE_c,         // NOLINT(readability-identifier-naming)
++    const std::array<double, 6>& last_O_dP_EE_c,    // NOLINT(readability-identifier-naming)
++    const std::array<double, 6>& last_O_ddP_EE_c);  // NOLINT(readability-identifier-naming)
++
++/**
++ * Limits the rate of a desired Cartesian pose considering the limits provided.
++ *
++ * @note
++ * FCI filters must be deactivated to work properly.
++ *
++ * @param[in] max_translational_velocity Maximum translational velocity.
++ * @param[in] max_translational_acceleration Maximum translational acceleration.
++ * @param[in] max_translational_jerk Maximum translational jerk.
++ * @param[in] max_rotational_velocity Maximum rotational velocity.
++ * @param[in] max_rotational_acceleration Maximum rotational acceleration.
++ * @param[in] max_rotational_jerk Maximum rotational jerk.
++ * @param[in] O_T_EE_c Commanded pose of the current time step.
++ * @param[in] last_O_T_EE_c Commanded pose of the previous time step.
++ * @param[in] last_O_dP_EE_c Commanded end effector twist of the previous time step.
++ * @param[in] last_O_ddP_EE_c Commanded end effector acceleration of the previous time step.
++ *
++ * @throw std::invalid_argument if an element of O_T_EE_c is infinite or NaN.
++ *
++ * @return Rate-limited desired pose.
++ */
++std::array<double, 16> limitRate(
++    double max_translational_velocity,
++    double max_translational_acceleration,
++    double max_translational_jerk,
++    double max_rotational_velocity,
++    double max_rotational_acceleration,
++    double max_rotational_jerk,
++    const std::array<double, 16>& O_T_EE_c,         // NOLINT(readability-identifier-naming)
++    const std::array<double, 16>& last_O_T_EE_c,    // NOLINT(readability-identifier-naming)
++    const std::array<double, 6>& last_O_dP_EE_c,    // NOLINT(readability-identifier-naming)
++    const std::array<double, 6>& last_O_ddP_EE_c);  // NOLINT(readability-identifier-naming)
++
++}  // namespace franka
+diff --git a/pylibfranka/examples/cartesian_pose_example.py b/pylibfranka/examples/diana7/cartesian_pose_example.py
+similarity index 97%
+rename from pylibfranka/examples/cartesian_pose_example.py
+rename to pylibfranka/examples/diana7/cartesian_pose_example.py
+--- a/pylibfranka/examples/cartesian_pose_example.py
++++ b/pylibfranka/examples/diana7/cartesian_pose_example.py
+@@ -8,6 +8,7 @@ import time
+ 
+ import numpy as np
+ 
++from example_common import setDefaultBehaviour
+ from pylibfranka import CartesianPose, ControllerMode, RealtimeConfig, Robot
+ 
+ 
+@@ -21,6 +22,8 @@ def main():
+     robot = Robot(args.ip, RealtimeConfig.kIgnore)
+ 
+     try:
++        setDefaultBehaviour(robot)
++
+         # Set collision behavior
+         lower_torque_thresholds = [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]
+         upper_torque_thresholds = [20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0]
+diff --git a/pylibfranka/examples/cartesian_velocity_example.py b/pylibfranka/examples/diana7/cartesian_velocity_example.py
+similarity index 95%
+rename from pylibfranka/examples/cartesian_velocity_example.py
+rename to pylibfranka/examples/diana7/cartesian_velocity_example.py
+--- a/pylibfranka/examples/cartesian_velocity_example.py
++++ b/pylibfranka/examples/diana7/cartesian_velocity_example.py
+@@ -29,7 +29,7 @@ def main():
+         setDefaultBehaviour(robot)
+ 
+         # First move the robot to a suitable joint configuration
+-        q_goal = [0.0, np.pi / 4, 0.0, -3 * np.pi / 4, 0.0, np.pi / 2, np.pi / 4]
++        q_goal = [0.0, -np.pi / 4, 0.0, 3 * np.pi / 4, 0.0, -np.pi / 2, np.pi / 4]
+ 
+         # Create motion generator
+         motion_generator = MotionGenerator(speed_factor=0.5, q_goal=q_goal)
+@@ -52,7 +52,7 @@ def main():
+ 
+     # Set additional parameters always before the control loop, NEVER in the control loop!
+     # Set the joint impedance.
+-    robot.set_joint_impedance([3000.0, 3000.0, 3000.0, 2500.0, 2500.0, 2000.0, 2000.0])  # Nm/rad
++    robot.set_joint_impedance([2000, 2000, 2000, 1000, 700, 700, 700])  # Nm/rad
+ 
+     try:
+         # Set collision behavior
+diff --git a/pylibfranka/examples/example_common.py b/pylibfranka/examples/diana7/example_common.py
+similarity index 96%
+rename from pylibfranka/examples/example_common.py
+rename to pylibfranka/examples/diana7/example_common.py
+--- a/pylibfranka/examples/example_common.py
++++ b/pylibfranka/examples/diana7/example_common.py
+@@ -20,9 +20,8 @@ def setDefaultBehaviour(robot: Robot):
+     )
+ 
+     # Set joint impedance
+-    robot.set_joint_impedance([3000.0, 3000.0, 3000.0, 2500.0, 2500.0, 2000.0, 2000.0])  # Nm/rad
+-    robot.set_cartesian_impedance([3000.0, 3000.0, 3000.0, 300.0, 300.0, 300.0])  # N/m and Nm/rad])
+-
++    robot.set_joint_impedance([2000, 2000, 2000, 1000, 700, 700, 700])  # Nm/rad
++    robot.set_cartesian_impedance([6000, 6000, 6000, 1000, 1000, 1000])  # N/m and Nm/rad])
+ 
+ class MotionGenerator:
+     def __init__(self, speed_factor: float, q_goal: List[float]):
+diff --git a/pylibfranka/examples/joint_impedance_example.py b/pylibfranka/examples/diana7/joint_impedance_example.py
+old mode 100755
+new mode 100644
+similarity index 96%
+rename from pylibfranka/examples/joint_impedance_example.py
+rename to pylibfranka/examples/diana7/joint_impedance_example.py
+--- a/pylibfranka/examples/joint_impedance_example.py
++++ b/pylibfranka/examples/diana7/joint_impedance_example.py
+@@ -73,15 +73,15 @@ def main():
+     # Define a sequence of target joint configurations
+     target_joint_positions = [
+         # Home position (slightly bent arm)
+-        [0.0, -0.3, 0.0, -1.8, 0.0, 1.5, 0.0],
++        [0.0, -0.3, 0.0, 1.8, 0.0, -1.5, 0.0],
+         # Extended arm pointing forward
+-        [0.0, 0.0, 0.0, -1.57, 0.0, 1.57, 0.0],
++        [0.0, 0.0, 0.0, 1.57, 0.0, -1.57, 0.0],
+         # Arm pointing to the right
+-        [0.5, -0.3, 0.0, -1.8, 0.0, 1.5, 0.0],
++        [0.5, -0.3, 0.0, 1.8, 0.0, -1.5, 0.0],
+         # Arm pointing to the left
+-        [-0.5, -0.3, 0.0, -1.8, 0.0, 1.5, 0.0],
++        [-0.5, -0.3, 0.0, 1.8, 0.0, -1.5, 0.0],
+         # Home position again
+-        [0.0, -0.3, 0.0, -1.8, 0.0, 1.5, 0.0],
++        [0.0, -0.3, 0.0, 1.8, 0.0, -1.5, 0.0],
+     ]
+ 
+     # Compliance parameters
+diff --git a/pylibfranka/examples/joint_position_example.py b/pylibfranka/examples/diana7/joint_position_example.py
+old mode 100755
+new mode 100644
+similarity index 100%
+rename from pylibfranka/examples/joint_position_example.py
+rename to pylibfranka/examples/diana7/joint_position_example.py
+diff --git a/pylibfranka/examples/joint_velocity_example.py b/pylibfranka/examples/diana7/joint_velocity_example.py
+similarity index 100%
+rename from pylibfranka/examples/joint_velocity_example.py
+rename to pylibfranka/examples/diana7/joint_velocity_example.py
+diff --git a/pylibfranka/examples/move_gripper.py b/pylibfranka/examples/diana7/move_gripper.py
+old mode 100755
+new mode 100644
+similarity index 100%
+rename from pylibfranka/examples/move_gripper.py
+rename to pylibfranka/examples/diana7/move_gripper.py
+diff --git a/pylibfranka/examples/print_robot_state.py b/pylibfranka/examples/diana7/print_robot_state.py
+old mode 100755
+new mode 100644
+similarity index 100%
+rename from pylibfranka/examples/print_robot_state.py
+rename to pylibfranka/examples/diana7/print_robot_state.py
+diff --git a/setup.py b/setup.py
+--- a/setup.py
++++ b/setup.py
+@@ -11,118 +11,216 @@ from setuptools.command.build_ext import build_ext
+ def get_version():
+     """Extract version from CMakeLists.txt."""
+     cmake_file = Path(__file__).parent / "CMakeLists.txt"
++
+     if cmake_file.exists():
+-        with open(cmake_file, 'r') as f:
++        with open(cmake_file, "r") as f:
+             content = f.read()
+-            match = re.search(r'set\(libfranka_VERSION\s+(\d+\.\d+\.\d+)\)', content)
++
++            match = re.search(
++                r"set\s*\(\s*libfranka_VERSION\s+(\d+\.\d+\.\d+)\s*\)",
++                content,
++            )
++
+             if match:
+                 return match.group(1)
++
+     return "0.0.0"
+ 
+ 
+ def update_version_file():
+     """Update _version.py with current version from CMakeLists.txt."""
++
+     version = get_version()
+-    version_file = Path(__file__).parent / "pylibfranka" / "_version.py"
+-    
++
++    version_file = (
++        Path(__file__).parent /
++        "pylibfranka" /
++        "_version.py"
++    )
++
+     if version_file.exists():
+-        # Read current content
+-        with open(version_file, 'r') as f:
++
++        with open(version_file, "r") as f:
+             content = f.read()
+-        
+-        # Update the version line (matches the pattern with AUTO-GENERATED comment)
++
+         new_content = re.sub(
+             r'__version__ = "[^"]*"  # AUTO-GENERATED',
+             f'__version__ = "{version}"  # AUTO-GENERATED',
+-            content
++            content,
+         )
+-        
+-        # Write the updated content
+-        with open(version_file, 'w') as f:
++
++        with open(version_file, "w") as f:
+             f.write(new_content)
++
+     else:
+-        # Create the file if it doesn't exist
+-        with open(version_file, 'w') as f:
+-            f.write(f'''"""Version information for pylibfranka."""
+ 
+-__all__ = ['__version__']
++        with open(version_file, "w") as f:
++            f.write(
++                f'''"""Version information for pylibfranka."""
+ 
++__all__ = ["__version__"]
+ 
+-# Version will be written here by pip install . command
+-# or setup.py during build/install
++# Version will be written here by pip install .
+ # DO NOT EDIT THIS LINE - it is automatically replaced
++
+ __version__ = "{version}"  # AUTO-GENERATED
+-''')
++'''
++            )
+ 
+ 
+-# Update version file immediately when setup.py is loaded
+ update_version_file()
+ 
+ 
+ class CMakeExtension(Extension):
++
+     def __init__(self, name, sourcedir=""):
+         Extension.__init__(self, name, sources=[])
++
+         self.sourcedir = os.path.abspath(sourcedir)
+ 
+ 
+ class CMakeBuild(build_ext):
++
+     def run(self):
+-        # Ensure version file is updated (redundant but safe)
++
+         update_version_file()
+-        
+-        # Call parent run
++
+         super().run()
+-    
++
++
+     def build_extension(self, ext):
+-        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
++
++        extdir = os.path.abspath(
++            os.path.dirname(
++                self.get_ext_fullpath(ext.name)
++            )
++        )
+ 
+         if not extdir.endswith(os.path.sep):
+             extdir += os.path.sep
+ 
+-        build_temp = os.path.join(self.build_temp, "build")
+-        if not os.path.exists(build_temp):
+-            os.makedirs(build_temp)
++
++        build_temp = os.path.join(
++            self.build_temp,
++            "build"
++        )
++
++        os.makedirs(
++            build_temp,
++            exist_ok=True
++        )
++
++
++        # ==============================
++        # Wheel 专用 CMake 配置
++        # 这里只编译 libfranka + pylibfranka
++        # 不编译 examples
++        # ==============================
+ 
+         cmake_args = [
+             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}",
++
+             f"-DPYTHON_EXECUTABLE={sys.executable}",
+-            f"-DBUILD_TESTS=OFF",
+-            f"-DGENERATE_PYLIBFRANKA=ON",
+-            f"-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
++
++            # 不编译测试
++            "-DBUILD_TESTS=OFF",
++
++            # 关键：
++            # wheel 不需要 examples
++            "-DBUILD_EXAMPLES=OFF",
++
++            # 生成 Python binding
++            "-DGENERATE_PYLIBFRANKA=ON",
++
++            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
++
+             "-DCMAKE_BUILD_TYPE=Release",
+         ]
+ 
+-        subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=build_temp)
++
+         subprocess.check_call(
+-            ["cmake", "--build", ".", "--config", "Release", "--parallel"],
++            [
++                "cmake",
++                ext.sourcedir,
++            ]
++            + cmake_args,
+             cwd=build_temp,
+         )
+ 
+-        # Ensure the built extension gets properly tracked by setuptools
+-        built_lib = Path(extdir) / f"{ext.name.split('.')[-1]}.so"
++
++        subprocess.check_call(
++            [
++                "cmake",
++                "--build",
++                ".",
++                "--config",
++                "Release",
++                "--parallel",
++            ],
++            cwd=build_temp,
++        )
++
++
++        built_lib = (
++            Path(extdir)
++            /
++            f"{ext.name.split('.')[-1]}.so"
++        )
++
++
+         if built_lib.exists():
+-            # Copy to the package directory to ensure it's tracked
++
+             package_dir = Path("pylibfranka")
++
+             if package_dir.exists():
++
+                 import shutil
+ 
+-                target = package_dir / built_lib.name
++                target = (
++                    package_dir /
++                    built_lib.name
++                )
++
+                 if not target.exists():
+-                    shutil.copy2(built_lib, target)
++
++                    shutil.copy2(
++                        built_lib,
++                        target
++                    )
++
+ 
+ 
+ setup(
+     name="pylibfranka",
++
+     version=get_version(),
+-    packages=["pylibfranka"],
++
++    packages=[
++        "pylibfranka"
++    ],
++
+     python_requires=">=3.8",
+-    install_requires=["numpy>=1.19.0"],
+-    ext_modules=[CMakeExtension("pylibfranka._pylibfranka")],
++
++    install_requires=[
++        "numpy>=1.19.0"
++    ],
++
++    ext_modules=[
++        CMakeExtension(
++            "pylibfranka._pylibfranka"
++        )
++    ],
++
+     cmdclass={
+         "build_ext": CMakeBuild,
+     },
++
+     zip_safe=False,
++
+     package_data={
+-        "pylibfranka": ["*.so", "*.pyd"],
++        "pylibfranka": [
++            "*.so",
++            "*.pyd",
++        ],
+     },
+-)
++)
+\ No newline at end of file
+diff --git a/pylibfranka/examples/diana7/joint_velocity_example.py b/pylibfranka/examples/diana7/joint_velocity_example.py
+--- a/pylibfranka/examples/diana7/joint_velocity_example.py
++++ b/pylibfranka/examples/diana7/joint_velocity_example.py
+@@ -7,6 +7,7 @@
+ import argparse
+ 
+ import numpy as np
++from example_common import MotionGenerator
+ 
+ from pylibfranka import ControllerMode, JointVelocities, Robot
+ 
+@@ -37,8 +38,23 @@ def main():
+         print("Please make sure to have the user stop button at hand!")
+         input("Press Enter to continue...")
+ 
++        # First move the robot to the same initial joint configuration as the C++ example.
++        q_goal = [0.0, -np.pi / 4, 0.0, 3 * np.pi / 4, 0.0, -np.pi / 2, np.pi / 4]
++        motion_generator = MotionGenerator(speed_factor=0.5, q_goal=q_goal)
++
++        position_control = robot.start_joint_position_control(ControllerMode.JointImpedance)
++        while True:
++            state, duration = position_control.readOnce()
++            joint_positions = motion_generator(state, duration.to_sec())
++            position_control.writeOnce(joint_positions)
++            if joint_positions.motion_finished:
++                robot.stop()
++                break
++
++        print("Finished moving to initial joint configuration.")
++
+         # Start joint velocity control with external control loop
+-        active_control = robot.start_joint_velocity_control(ControllerMode.CartesianImpedance)
++        active_control = robot.start_joint_velocity_control(ControllerMode.JointImpedance)
+ 
+         time_max = 1.0
+         omega_max = 1.0
+@@ -65,7 +81,7 @@ def main():
+                 0.0,
+                 0.0,
+                 0.0,
+-                omega,
++                omega / 2,
+                 omega,
+                 omega,
+                 omega,
